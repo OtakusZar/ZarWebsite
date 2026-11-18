@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "probe": "node scripts/probe-endpoint.mjs",
+    "test:e2e": "node scripts/e2e-submit.mjs",
+    "mock:data": "node scripts/mock-responses.mjs",
+    "mock:post": "node scripts/mock-responses.mjs --post"
   },
   "dependencies": {
     "framer-motion": "^11.11.17",
@@ -20,6 +24,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "playwright-core": "^1.49.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",

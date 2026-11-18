@@ -34,6 +34,9 @@ coverage
 *.lcov
 .nyc_output
 
+# 模拟数据是本地生成的，不入库（用 npm run mock:data 随时重新生成）
+mock-data/
+
 # ---------- cache ----------
 .cache
 .parcel-cache

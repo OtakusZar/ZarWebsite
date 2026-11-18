@@ -104,9 +104,35 @@ export type SubmitResult = SubmitSuccess | SubmitFailure
  * Optional real endpoint. Set `VITE_SURVEY_ENDPOINT` in a `.env` file to enable
  * it; while it is empty the service runs in simulation mode.
  */
-const ENDPOINT: string = (import.meta.env.VITE_SURVEY_ENDPOINT as string | undefined) ?? ''
+const RAW_ENDPOINT: string = (import.meta.env.VITE_SURVEY_ENDPOINT as string | undefined) ?? ''
+
+/**
+ * `.env` 里很容易漏写协议头（写成 `api.example.com`），
+ * 那样 fetch 会把它当成相对路径打到当前站点上。这里统一补齐。
+ */
+export function normaliseEndpoint(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    return new URL(withScheme).toString()
+  } catch {
+    return withScheme
+  }
+}
+
+const ENDPOINT = normaliseEndpoint(RAW_ENDPOINT)
 
 const SIMULATED_LATENCY_MS = 1200
+
+/** Server responses we know how to read; anything else is treated as "ok enough". */
+interface ServerReply {
+  success?: boolean
+  submissionId?: string
+  receivedAt?: string
+  error?: string
+  message?: string
+}
 
 export async function submitSurvey(payload: SurveySubmissionPayload): Promise<SubmitResult> {
   /* ================================================================
@@ -124,20 +150,48 @@ export async function submitSurvey(payload: SurveySubmissionPayload): Promise<Su
    * ================================================================ */
   if (ENDPOINT) {
     try {
+      if (import.meta.env.DEV) {
+        console.log('[submitSurvey] POST', ENDPOINT, payload)
+      }
+
       const response = await fetch(ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
       })
+
+      const rawBody = await response.text()
+      let reply: ServerReply = {}
+      try {
+        reply = rawBody ? (JSON.parse(rawBody) as ServerReply) : {}
+      } catch {
+        // 非 JSON 响应（例如某些表单服务返回 HTML）时不做解析
+      }
 
       if (!response.ok) {
         return {
           success: false,
-          error: `The server responded with ${response.status} ${response.statusText}.`,
+          error:
+            reply.error ??
+            reply.message ??
+            `The server responded with ${response.status} ${response.statusText}.`,
         }
       }
 
-      return { success: true, submissionId: payload.submissionId, submittedAt: payload.submittedAt }
+      // 后端可能显式返回 success:false（例如校验没通过）
+      if (reply.success === false) {
+        return { success: false, error: reply.error ?? reply.message ?? 'The server rejected the submission.' }
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('[submitSurvey] reply', response.status, reply)
+      }
+
+      return {
+        success: true,
+        submissionId: reply.submissionId ?? payload.submissionId,
+        submittedAt: reply.receivedAt ?? payload.submittedAt,
+      }
     } catch (error) {
       return {
         success: false,

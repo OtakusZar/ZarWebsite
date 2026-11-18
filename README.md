@@ -5,8 +5,9 @@
 **界面语言：中文为主、英文为辅。** 每处文案都是「中文大字 + 英文小字」的层级：题干、选项、量表、按钮、提示全部中文优先，英文作为第二行浅色副标题保留（方便中英混合的研究团队与受访者）。
 
 - 15 个答题步骤，覆盖问卷文件 `Questionary.docx` 中的全部题目（单选、多选、量表矩阵、开放文本、条件分支）
-- 电脑端 / 手机端深度适配，键盘快捷键，自动保存草稿，可接入任意后端
-- **目前处于「模拟提交」模式**：填完后会在浏览器控制台打印完整 JSON，不会真的发送到服务器。接入真实接口的方法见上文第 4 节。
+- 电脑端 / 手机端深度适配，键盘快捷键，自动保存草稿
+- **提交模式取决于 `.env`**：配置了 `VITE_SURVEY_ENDPOINT` 就真实 POST 到后端；没配置就退回「模拟模式」（只在控制台打印 JSON，不发请求）。
+- 附带三个可复用的测试工具：连通性探测、真实浏览器端到端提交、可复现的模拟数据生成器（见第 9 节）。
 
 ---
 
@@ -126,6 +127,11 @@ E:\MyWebSite
 │
 ├─ docs/
 │  └─ worker-example.js       一个可用的 Cloudflare Worker 后端示例
+│
+├─ scripts/                   ★ 测试与造数工具（见第 9 节）
+│  ├─ probe-endpoint.mjs      后端连通性 / CORS 探测
+│  ├─ e2e-submit.mjs          真实浏览器跑完整份问卷并校验后端回包
+│  └─ mock-responses.mjs      可复现的模拟数据生成器
 │
 └─ screenshots/               设计预览截图（可删除，不影响运行）
 ```
@@ -432,3 +438,111 @@ Q1b_other: {
 A 背景信息（Q1）· B 对 AI 能力的判断（Q2 十二项任务 × 3 分制，Q3 最重要任务）· C 对生成式 AI 的接受与使用（Q4 五点李克特 × 5 项，Q5 使用频率）· D 技能发展策略（Q6 学习投入，Q7 多选，Q8 三点陈述，Q9 隐瞒使用）· E 职业适应力（Q10，Career Adapt-Abilities Scale, Savickas & Porfeli, 2012，24 题按 concern / control / curiosity / confidence 四个维度分成 4 张卡片）· F 开放题（Q11）。
 
 原文 `Questionary.docx` 里的 Q10 只写了「使用已发表的 24 题版本」，因此代码中按该量表的公开条目补齐了 24 条中英文对照；如果研究设计有指定译本，请在 `src/data/survey.ts` 的 `Q10a`–`Q10d` 里替换条目文字即可（`items` 的 `id` 建议保持不变，方便数据对接）。
+
+---
+
+## 9. 测试与模拟数据（`scripts/`）
+
+三个脚本互相独立，都不含密钥，可以安全提交进仓库。
+
+### 9.1 先检查后端是否收得到：`npm run probe`
+
+```powershell
+npm run probe
+# 或指定地址：node scripts/probe-endpoint.mjs https://api.xxx.com/submit
+```
+
+依次做三件事，输出形如：
+
+```
+Endpoint : https://api.techzar.site
+▶ OPTIONS 预检 (CORS)
+  status: 204
+  access-control-allow-origin: *
+  access-control-allow-methods: POST, OPTIONS
+▶ POST 探测数据
+  status: 200
+  body: {"success":true,"submissionId":"probe-…","receivedAt":"…"}
+▶ GET（了解根路径行为）
+  status: 405
+  body: {"error":"Use POST"}
+```
+
+重点看 **`access-control-allow-origin`**：如果这一项缺失或者是写死的域名，浏览器会拦住提交（控制台报 CORS 错误），此时需要改后端而不是前端。
+
+### 9.2 端到端真实提交：`npm run test:e2e`
+
+前提：另开一个终端跑 `npm run dev`（或 `npm run preview`）。
+
+```powershell
+npm run test:e2e              # 无头浏览器，快速跑
+npm run test:e2e -- --headed  # 弹出浏览器，能看见它自己填
+```
+
+它会用真实浏览器打开问卷、逐题作答、点提交，然后断言：
+
+- 界面走到感谢页
+- 捕获到 POST 请求，且 URL 是 `.env` 里的地址
+- 后端返回 `200` + `{ success: true, submissionId }`
+- 请求体里有 `answers` / `device` / `meta`
+
+全部通过时退出码为 0（可以直接接 GitHub Actions 之类的 CI）。同时会把这次真实的请求体存到 `mock-data/last-e2e-submission.json`，方便和模拟数据对照字段。
+
+> 它需要本机装有 Edge 或 Chrome（脚本会自动找，也可以用 `--browser chrome` 或环境变量 `CHROME_PATH` 指定），不会下载额外浏览器。
+
+### 9.3 造模拟数据验证统计工具：`npm run mock:data`
+
+```powershell
+npm run mock:data                              # 40 份，只写文件
+npm run mock:data -- --count 60 --seed 42      # 指定数量与种子
+npm run mock:post -- --count 60 --seed 42      # 生成并 POST 到后端
+```
+
+**可复现**：同一个 `--seed` 永远生成完全相同的数据（用的是 mulberry32 伪随机数）。想换一批数据就换 `--seed`；想复现别人跑出来的一批数据，用同样的 seed + count 即可。
+
+输出两个文件（`mock-data/` 已在 `.gitignore` 中）：
+
+| 文件 | 内容 |
+| --- | --- |
+| `responses-<seed>.json` | 完整 payload 数组，字段与前端真实提交**逐键一致** |
+| `expected-stats-<seed>.json` | 生成器算好的「标准答案」：每题频次、矩阵逐项均值与标准差、设备分布、按日期分布 |
+
+**怎么用它验证你的统计工具**
+
+1. 记录本次批次的关键数字（跑完会打印在终端）。
+2. 用统计工具读同一批数据（数据库里过滤 `submissionId like 'mock-42-%'`，或直接读 `responses-42.json`）。
+3. 逐项对照 `expected-stats-42.json`。例如 60 份 / seed 42 这一批：
+
+   | 指标 | 标准答案 |
+   | --- | --- |
+   | 样本量 | 60 |
+   | Q5 使用频率 | weekly 17 · rarely 16 · never 12 · monthly 9 · daily 6 |
+   | Q4 第一项均值 | 4.02 |
+   | Q10a 六项均值 | 3.33 / 3.27 / 3.50 / 3.45 / 3.17 / 3.28 |
+   | Q11 有文字 | 40 / 60 |
+   | 设备分布 | 见 `deviceMix` |
+
+4. 如果数字对不上，先怀疑统计工具的过滤条件（是否把 `answered: false` 的行算进去了、是否按 `questionType` 分组错了、矩阵是否按 `rows[].value` 展开）。
+
+数据里刻意埋了相关性，可以用来验证你的相关分析 / 回归是否正常：
+
+- **AI 使用强度** ↑ → Q5 使用频率 ↑、Q2「AI 能独立完成」的比例 ↑、Q4 认同度 ↑
+- **职业适应力** ↑ → Q10 四个维度得分 ↑
+- **对替代的担忧** ↑ → Q9「曾隐瞒使用」= 是 的比例 ↑、Q8 的 b1/b2 得分 ↑
+- 提交时间铺在**最近 7 天**，可用于验证按日期分组
+
+> 提示：模拟数据的 `submissionId` 一律以 `mock-<seed>-` 开头（例如 `mock-42-001`），探测脚本写入的是 `probe-*`，端到端测试写入的是普通 UUID。清理测试数据时按前缀删除即可。
+
+### 9.4 一次完整的验证流程
+
+```powershell
+# 终端 1
+npm run dev
+
+# 终端 2
+npm run probe                 # 后端通不通、CORS 对不对
+npm run test:e2e              # 界面 → 后端 的完整链路
+npm run mock:post -- --count 60 --seed 42   # 造 60 份可复现数据并入库
+```
+
+然后打开你的统计工具，对照 `mock-data/expected-stats-42.json` 检查各项数字。
