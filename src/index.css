@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper text-ink-900 antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    letter-spacing: -0.005em;
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    @apply bg-accent-200/70 text-ink-900;
+  }
+
+  /* Keep focus rings visible for keyboard users, invisible for mouse users. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.500');
+    outline-offset: 2px;
+    border-radius: 0.75rem;
+  }
+
+  /* iOS zooms into inputs smaller than 16px — never let that happen. */
+  input,
+  textarea,
+  select,
+  button {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-ink-400;
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: calc(var(--safe-bottom) + 0.75rem);
+  }
+
+  .safe-top {
+    padding-top: calc(var(--safe-top) + 0.75rem);
+  }
+
+  .balanced {
+    text-wrap: balance;
+  }
+
+  .pretty {
+    text-wrap: pretty;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Very fine graph-paper texture, faded out towards the edges. */
+  .paper-grid {
+    background-image:
+      linear-gradient(to right, rgba(27, 31, 43, 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(27, 31, 43, 0.055) 1px, transparent 1px);
+    background-size: 34px 34px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 20%, transparent 78%);
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 20%, transparent 78%);
+  }
+
+  .glass {
+    background-color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  .glass-strong {
+    background-color: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+  }
+
+  .gradient-text {
+    background-image: linear-gradient(100deg, #1b1f2b 10%, #2947d4 55%, #b0905f 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .shadow-inner-top {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  .tap-highlight-none {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom scrollbars for the scrollable step area (desktop). */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(27, 31, 43, 0.16) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(27, 31, 43, 0.16);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(27, 31, 43, 0.28);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Hand-drawn check mark on the thank-you screen. */
+@keyframes draw-check {
+  from {
+    stroke-dashoffset: var(--check-len, 32px);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.check-draw {
+  stroke-dasharray: var(--check-len, 32px);
+  stroke-dashoffset: var(--check-len, 32px);
+  animation: draw-check 0.5s 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .check-draw {
+    stroke-dashoffset: 0;
+  }
+}
