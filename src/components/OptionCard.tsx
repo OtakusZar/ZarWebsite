@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check } from 'lucide-react'
+import { usePressSelect } from '../hooks/usePressSelect'
 import { cn } from '../lib/cn'
 import { SPRING } from '../lib/motion'
 
@@ -24,20 +25,24 @@ export function OptionCard({
   onSelect,
   compact = false,
 }: OptionCardProps) {
+  // 手指抬起即选中，不等 click（手机上 click 可能被滚动取消）
+  const { pressed, handlers } = usePressSelect(onSelect)
+
   return (
     <motion.button
       type="button"
       role={multi ? 'checkbox' : 'radio'}
       aria-checked={selected}
-      onClick={onSelect}
+      {...handlers}
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.985 }}
       transition={SPRING}
       className={cn(
         'group relative flex w-full items-center gap-3 rounded-2xl border text-left tap-highlight-none',
+        'select-none touch-manipulation',
         'transition-[border-color,background-color,box-shadow] duration-200',
         compact ? 'min-h-[54px] px-3.5 py-2.5' : 'min-h-[56px] px-4 py-3',
-        selected
+        selected || pressed
           ? 'border-accent-500/80 bg-accent-50/80 shadow-[0_0_0_3px_rgba(58,99,242,0.10),0_12px_28px_-20px_rgba(58,99,242,0.9)]'
           : 'border-ink-200/80 bg-white/70 hover:border-ink-300 hover:bg-white hover:shadow-[0_10px_26px_-20px_rgba(16,18,27,0.55)]',
       )}

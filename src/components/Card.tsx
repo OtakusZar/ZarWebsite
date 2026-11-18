@@ -30,7 +30,10 @@ export function Card({ children, className, errorPulse, invalid = false }: CardP
     <motion.section
       animate={controls}
       className={cn(
-        'relative overflow-hidden rounded-[26px] border bg-white/85 shadow-card backdrop-blur-xl sm:rounded-[30px]',
+        'relative overflow-hidden rounded-[26px] border shadow-card sm:rounded-[30px]',
+        // 手机上不做实时 backdrop 模糊：大面积模糊会让每次重绘慢一倍以上，
+        // 直接表现为「点了半天才亮」。桌面上保留毛玻璃质感。
+        'bg-white sm:bg-white/85 sm:backdrop-blur-xl',
         'border-white/70',
         invalid ? 'border-rose-300/80 shadow-[0_0_0_3px_rgba(244,63,94,0.08),0_12px_32px_-12px_rgba(16,18,27,0.14)]' : '',
         className,

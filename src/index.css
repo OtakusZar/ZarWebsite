@@ -46,6 +46,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * touch-action: manipulation 关掉「双击缩放」的等待，点击立即生效；
+   * user-select: none 避免长按选中文字打断点击。
+   */
+  button,
+  a,
+  [role='button'],
+  [role='radio'],
+  [role='checkbox'],
+  label {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   input::placeholder,
   textarea::placeholder {
     @apply text-ink-400;
@@ -98,6 +113,19 @@
     background-color: rgba(255, 255, 255, 0.86);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
+  }
+
+  /*
+   * 手机端彻底关掉毛玻璃：固定在内容上方的 sticky 顶栏/底栏一旦带 backdrop-filter，
+   * 每一帧滚动和每一次内容变化都要重新采样模糊，是中低端手机卡顿的主要来源。
+   */
+  @media (max-width: 767px) {
+    .glass,
+    .glass-strong {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background-color: rgba(252, 251, 249, 0.97);
+    }
   }
 
   .gradient-text {

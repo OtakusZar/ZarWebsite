@@ -125,6 +125,9 @@ const ENDPOINT = normaliseEndpoint(RAW_ENDPOINT)
 
 const SIMULATED_LATENCY_MS = 1200
 
+/** 真实请求的最长等待时间，超时后回到「提交失败」页，答案不会丢。 */
+const REQUEST_TIMEOUT_MS = 20_000
+
 /** Server responses we know how to read; anything else is treated as "ok enough". */
 interface ServerReply {
   success?: boolean
@@ -149,6 +152,10 @@ export async function submitSurvey(payload: SurveySubmissionPayload): Promise<Su
    * 4. Delete the simulation block once the request works end to end.
    * ================================================================ */
   if (ENDPOINT) {
+    // 没有超时保护的话，网络卡住时用户会永远停在「正在提交…」页面
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
     try {
       if (import.meta.env.DEV) {
         console.log('[submitSurvey] POST', ENDPOINT, payload)
@@ -158,6 +165,7 @@ export async function submitSurvey(payload: SurveySubmissionPayload): Promise<Su
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       })
 
       const rawBody = await response.text()
@@ -193,10 +201,17 @@ export async function submitSurvey(payload: SurveySubmissionPayload): Promise<Su
         submittedAt: reply.receivedAt ?? payload.submittedAt,
       }
     } catch (error) {
+      const aborted = error instanceof DOMException && error.name === 'AbortError'
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Network request failed.',
+        error: aborted
+          ? `请求超时：${Math.round(REQUEST_TIMEOUT_MS / 1000)} 秒内没有收到服务器响应，请检查网络后重试。`
+          : error instanceof Error
+            ? error.message
+            : '网络请求失败，请检查网络后重试。',
       }
+    } finally {
+      window.clearTimeout(timer)
     }
   }
 
